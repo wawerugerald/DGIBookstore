@@ -1,0 +1,42 @@
+/*
+Theme Name: Bookshop
+
+Author: Gerald Anthony Waweru
+Version: 1.0.0
+*/
+
+/* Custom styles for book pages */
+.book-single-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+.book-details {
+    background: #f9f9f9;
+    padding: 30px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.buy-button {
+    background: #635BFF;
+    color: white;
+    padding: 15px 40px;
+    font-size: 18px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.buy-button:hover {
+    background: #4F46BA;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(99, 91, 255, 0.3);
+}
+
+.buy-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
