@@ -1,15 +1,12 @@
 <?php
 /**
- * WooCommerce Integration for Book CPT
- */
-
-if (!defined('ABSPATH')) exit;
-
-/**
  * Automatically link a WooCommerce Product by ISBN (SKU)
  * Runs when a Book is saved or updated
  * Waweru Gerald Anthony
  */
+
+if (!defined('ABSPATH')) exit;
+
 add_action('acf/init', function() {
     add_action('save_post_book', 'bookshop_link_product_to_book', 20, 3);
 });
