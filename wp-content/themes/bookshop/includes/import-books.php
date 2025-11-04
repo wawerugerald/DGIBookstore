@@ -1,47 +1,49 @@
 <?php
 /**
- * Import Books from CSV
+ * Import and Manage Books from CSV
  * 
- * Usage: Access via Books → Import Books menu 
+ * Adds:
+ * - Import Books button (from books.csv)
+ * - Delete All Books button (removes all imported books and resets the import flag)
  */
 
-function bookshop_import_books_from_csv() {
-    // Security check that only the admin can run this
-    if (!current_user_can('manage_options')) {
-        return;
-    }
+if (!defined('ABSPATH')) exit;
 
-    // Check if import is being requested
+/**
+ * Handle book import from CSV
+ */
+function bookshop_import_books_from_csv() {
+    if (!current_user_can('manage_options')) return;
+
+    // === Handle Import ===
     if (isset($_GET['import_books']) && $_GET['import_books'] === 'true') {
-        
-        // Check if already imported to prevent duplicates
+
+        // Prevent duplicate imports
         if (get_option('bookshop_books_imported')) {
-            wp_die('Books have already been imported. Delete the books and remove the option to re-import.');
+            wp_die('Books have already been imported. Delete them first to re-import.');
         }
 
         $csv_file = get_stylesheet_directory() . '/books.csv';
-        
+
         if (!file_exists($csv_file)) {
             wp_die('CSV file not found. Please ensure books.csv exists in the theme directory.');
         }
 
         $imported = 0;
-        $errors = array();
+        $errors = [];
 
-        // Opening and reading CSV
-        if (($handle = fopen($csv_file, 'r')) !== FALSE) {
-            $headers = fgetcsv($handle, 1000, ','); // Getting the headers
+        if (($handle = fopen($csv_file, 'r')) !== false) {
+            $headers = fgetcsv($handle, 1000, ','); // First row = headers
 
-            while (($data = fgetcsv($handle, 1000, ',')) !== FALSE) {
+            while (($data = fgetcsv($handle, 1000, ',')) !== false) {
                 $book_data = array_combine($headers, $data);
-                
-                // Creating a post
-                $post_id = wp_insert_post(array(
+
+                $post_id = wp_insert_post([
                     'post_title'   => sanitize_text_field($book_data['book_title']),
                     'post_type'    => 'book',
                     'post_status'  => 'publish',
                     'post_content' => 'Book description goes here.',
-                ));
+                ]);
 
                 if (is_wp_error($post_id)) {
                     $errors[] = $post_id->get_error_message();
@@ -49,32 +51,56 @@ function bookshop_import_books_from_csv() {
                 }
 
                 // Add ACF fields
-                update_field('book_title', sanitize_text_field($book_data['book_title']), $post_id);
-                update_field('author', sanitize_text_field($book_data['author']), $post_id);
-                update_field('isbn', sanitize_text_field($book_data['isbn']), $post_id);
-                update_field('price', floatval($book_data['price']), $post_id);
+                if (function_exists('update_field')) {
+                    update_field('book_title', sanitize_text_field($book_data['book_title']), $post_id);
+                    update_field('author', sanitize_text_field($book_data['author']), $post_id);
+                    update_field('isbn', sanitize_text_field($book_data['isbn']), $post_id);
+                    update_field('price', floatval($book_data['price']), $post_id);
+                } else {
+                    // Fallback if ACF not available
+                    update_post_meta($post_id, 'book_title', sanitize_text_field($book_data['book_title']));
+                    update_post_meta($post_id, 'author', sanitize_text_field($book_data['author']));
+                    update_post_meta($post_id, 'isbn', sanitize_text_field($book_data['isbn']));
+                    update_post_meta($post_id, 'price', floatval($book_data['price']));
+                }
 
                 $imported++;
             }
-            
             fclose($handle);
         }
 
-        // Mark as imported
         update_option('bookshop_books_imported', true);
 
-        // Show success message
-        $message = "Successfully imported {$imported} books.";
-        if (!empty($errors)) {
-            $message .= " Errors: " . implode(', ', $errors);
+        $message = "✅ Successfully imported {$imported} books.";
+        if (!empty($errors)) $message .= "<br>Errors: " . implode(', ', $errors);
+
+        wp_die($message . '<br><a href="' . admin_url('edit.php?post_type=book') . '" class="button">View Books</a>');
+    }
+
+    // === Handle Delete ===
+    if (isset($_GET['delete_books']) && $_GET['delete_books'] === 'true') {
+        $books = get_posts([
+            'post_type' => 'book',
+            'posts_per_page' => -1,
+            'fields' => 'ids',
+        ]);
+
+        $deleted = 0;
+        foreach ($books as $book_id) {
+            wp_delete_post($book_id, true);
+            $deleted++;
         }
-        
-        wp_die($message . ' <br><a href="' . admin_url('edit.php?post_type=book') . '">View Books</a>');
+
+        delete_option('bookshop_books_imported');
+
+        wp_die("🗑️ Successfully deleted {$deleted} books.<br><a href='" . admin_url('edit.php?post_type=book&page=import-books') . "' class='button'>Back</a>");
     }
 }
 add_action('init', 'bookshop_import_books_from_csv');
 
-// Add import button in admin menu
+/**
+ * Add Import/Delete page to the Books menu
+ */
 function bookshop_add_import_menu() {
     add_submenu_page(
         'edit.php?post_type=book',
@@ -87,27 +113,31 @@ function bookshop_add_import_menu() {
 }
 add_action('admin_menu', 'bookshop_add_import_menu');
 
+/**
+ * Render admin page
+ */
 function bookshop_import_page() {
     ?>
     <div class="wrap">
-        <h1>Import Books from CSV</h1>
+        <h1>📚 Book Import Manager</h1>
+
         <?php if (get_option('bookshop_books_imported')): ?>
-            <div class="notice notice-success">
-                <p>Books have already been imported.</p>
-                <p><a href="<?php echo admin_url('edit.php?post_type=book'); ?>" class="button">View Books</a></p>
+            <div class="notice notice-success is-dismissible">
+                <p><strong>Books have already been imported.</strong></p>
+                <p>
+                    <a href="<?php echo admin_url('edit.php?post_type=book'); ?>" class="button">View Books</a>
+                    <a href="<?php echo admin_url('edit.php?post_type=book&page=import-books&delete_books=true'); ?>" 
+                       class="button button-secondary" 
+                       onclick="return confirm('Are you sure you want to delete all books?');">
+                        🗑️ Delete All Books
+                    </a>
+                </p>
             </div>
-            <hr>
-            <h2>Re-import Books</h2>
-            <p>To re-import, you need to:</p>
-            <ol>
-                <li>Delete all existing books</li>
-                <li>Run this SQL command in phpMyAdmin: <code>DELETE FROM wp_options WHERE option_name = 'bookshop_books_imported';</code></li>
-                <li>Then click the import button again</li>
-            </ol>
         <?php else: ?>
-            <p>Click the button below to import books from books.csv</p>
+            <p>Click below to import books from your <code>books.csv</code> file.</p>
             <p><strong>File location:</strong> <?php echo get_stylesheet_directory(); ?>/books.csv</p>
-            <a href="<?php echo admin_url('?import_books=true'); ?>" class="button button-primary">Import Books Now</a>
+            <a href="<?php echo admin_url('edit.php?post_type=book&page=import-books&import_books=true'); ?>" 
+               class="button button-primary">📥 Import Books Now</a>
         <?php endif; ?>
     </div>
     <?php

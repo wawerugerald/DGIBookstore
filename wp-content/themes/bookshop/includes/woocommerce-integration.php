@@ -12,14 +12,14 @@ add_action('acf/init', function() {
 });
 
 function bookshop_link_product_to_book($post_id, $post, $update) {
-    // Skip autosaves and revisions
+    // Skipping autosaves and revisions
     if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
     if (wp_is_post_revision($post_id)) return;
     if ($post->post_type !== 'book') return;
     if (!class_exists('WooCommerce')) return;
     if (!function_exists('get_field')) return;
 
-    // Get book details
+    // Getting the book details
     $book_title = get_field('book_title', $post_id);
     $author     = get_field('author', $post_id);
     $isbn       = get_field('isbn', $post_id);
@@ -30,7 +30,7 @@ function bookshop_link_product_to_book($post_id, $post, $update) {
     // Clean up ISBN to remove strange characters
     $isbn = trim(preg_replace('/[^\w-]/', '', $isbn));
 
-    // Find product by SKU (ISBN)
+    // getting product by SKU (ISBN)
     $product_id = wc_get_product_id_by_sku($isbn);
 
     if (!$product_id) {
@@ -47,14 +47,14 @@ function bookshop_link_product_to_book($post_id, $post, $update) {
         $product_id = $product->get_id();
     }
 
-    // Link both ways
+    // attempting to link both ways
     update_post_meta($post_id, '_linked_product_id', $product_id);
     update_post_meta($product_id, '_linked_book_id', $post_id);
     update_post_meta($product_id, '_book_isbn', $isbn);
 }
 
 /**
- * Get linked WooCommerce Product ID for a Book
+ * Getting linked WooCommerce Product ID for a Book
  */
 function bookshop_get_product_id_for_book($book_id) {
     $product_id = get_post_meta($book_id, '_linked_product_id', true);
@@ -71,7 +71,7 @@ function bookshop_get_product_id_for_book($book_id) {
 }
 
 /**
- * Load custom template for single books
+ * Loading custom template for single books
  */
 function bookshop_single_book_template($template) {
     if (is_singular('book')) {
